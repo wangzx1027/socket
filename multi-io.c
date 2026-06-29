@@ -68,6 +68,5 @@ int main() {
         pthread_create(&thid, NULL, client_thread, &clientfd);
     }
 #endif
-    
     getchar();
 }
