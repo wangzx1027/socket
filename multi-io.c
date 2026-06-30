@@ -69,5 +69,4 @@ int main() {
     }
 #endif
     getchar();
-
 }
