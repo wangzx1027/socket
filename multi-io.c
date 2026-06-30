@@ -5,7 +5,9 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <sys/select.h>
 
+// block
 void *client_thread(void *arg) {
     int clientfd = *(int *)arg;
     while (1) {
@@ -58,7 +60,7 @@ int main() {
     }
 #endif
 
-#else
+#elif 0
     while (1) {
         struct sockaddr_in clientaddr;
         socklen_t len = sizeof(clientaddr);
@@ -67,6 +69,45 @@ int main() {
         pthread_t thid;
         pthread_create(&thid, NULL, client_thread, &clientfd);
     }
+#else // select
+    // int nready = select(maxfd, rset, wset, eset, timeout);
+
+    fd_set rfds, rset;
+    FD_ZERO(&rfds);
+    FD_SET(sockfd, &rfds);
+    int maxfd = sockfd;
+
+    while (1) {
+        rset = rfds;
+        int nready = select(maxfd + 1, &rset, NULL, NULL, NULL);
+        if (FD_ISSET(sockfd, &rset)) {
+            struct sockaddr_in clientaddr;
+            socklen_t len = sizeof(clientaddr);
+            int clientfd = accept(sockfd, (struct sockaddr*)&clientaddr, &len);
+            
+            printf("socket: %d\n", clientfd);
+
+            FD_SET(clientfd, &rfds);
+            maxfd = clientfd;
+        }
+
+        int i = 0;
+        for (i = sockfd + 1; i <= maxfd; i++) {
+            if (FD_ISSET(i, &rset)) {
+                char buffer[128] = {0};
+                int count = recv(i, buffer, sizeof(buffer), 0);
+                if (count == 0) {
+                    printf("disconnect\n");
+                    FD_CLR(i, &rfds);
+                    close(i);
+                    break;
+                }
+                send(i, buffer, count, 0);
+                printf("clientfd: %d, count: %d, buffer: %s\n", i, count, buffer);
+            }
+        }
+    }
+
 #endif
     getchar();
 }
